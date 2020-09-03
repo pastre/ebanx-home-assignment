@@ -5,10 +5,7 @@ from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFou
 from api.models import Account
 import json
 
-def requestToJson(request):
-	print("BODY IS", request.body)
-	return json.loads(request.body.decode('utf-8'))
-
+def requestToJson(request): return json.loads(request.body.decode('utf-8'))
 def stringToInt(i):
 	try: return int(i)
 	except ValueError: return False
@@ -18,13 +15,30 @@ def createAccount(pk):
 	new = Account.objects.create(pk = pk)
 	new.save()
 	return new
+def getAndCreateAccountIfNeeded(pk):
+	account = getAccount(pk)
+	if not account: account = createAccount(pk)
 
-def code201(payload): 
-	response = HttpResponse(payload, status = 201)
+	return account
 
-	return response
 def malformedRequest(): return HttpResponseBadRequest()
 def notFound(payload): return HttpResponseNotFound(payload)
+
+def deposit(accountId, amount):
+	account = getAndCreateAccountIfNeeded(accountId)
+	account.balance += amount
+	account.save()
+
+	return account
+def withdraw(accountId, amount):
+	account = getAccount(accountId)
+	if not account: return False
+
+	account.balance -= amount
+	account.save()
+
+	return account
+
 
 def getBalance(pk):
 	account = getAccount(pk)
@@ -38,16 +52,9 @@ def onDeposit(event):
 	amount = event.get('amount', False)
 	if not amount: return malformedRequest()
 
-	account = getAccount(destination)
-	if not account:
-		account = createAccount(destination)
-
-	account.balance += amount
-	account.save()
-
-	return code201(json.dumps({
-		"destination": account.toDict()
-		}))
+	return HttpResponse(json.dumps({
+		"destination": deposit(destination, amount).toDict()
+		}), status = 201)
 def onWithdraw(event):
 	origin = event.get('origin', False)
 	if not origin: return malformedRequest()
@@ -55,15 +62,12 @@ def onWithdraw(event):
 	amount = event.get('amount', False)
 	if not amount: return malformedRequest()
 
-	account = getAccount(origin)
-	if not account: return notFound("0")
+	success = withdraw(origin, amount)
+	if not success: return notFound("0")
 
-	account.balance -= amount
-	account.save()
-
-	return code201(json.dumps({
-		"origin": account.toDict()
-		}))
+	return HttpResponse(json.dumps({
+		"origin": success.toDict()
+		}), status = 201)
 def onTransfer(event):
 	originId = event.get('origin', False)
 	if not originId: return malformedRequest()
@@ -74,24 +78,15 @@ def onTransfer(event):
 	amount = event.get('amount', False)
 	if not amount: return malformedRequest()
 
-	originAccount = getAccount(originId)
+	originAccount = withdraw(originId, amount)
 	if not originAccount: return notFound('0')
 
-	destinationAccount = getAccount(destinationId)
-	if not destinationAccount: destinationAccount = createAccount(destinationId)
+	destinationAccount = deposit(destinationId, amount)
 
-	originAccount.balance -= amount
-	destinationAccount.balance += amount
-
-	originAccount.save()
-	destinationAccount.save()
-
-	return code201(json.dumps ({
+	return HttpResponse(json.dumps ({
 		"origin": originAccount.toDict(),
 		"destination": destinationAccount.toDict(),
-		}))
-
-
+		}), status = 201)
 
 class Event(View) :
 
@@ -104,16 +99,14 @@ class Event(View) :
 		if event == "deposit": return onDeposit(asDict)
 		if event == "withdraw": return onWithdraw(asDict)
 		if event == "transfer": return onTransfer(asDict)
+		
 		return malformedRequest()
-
 class Balance(View):
 	def get(self, request):
 		accountId = request.GET.get("account_id", False)
 		if not accountId: return malformedRequest()
 
 		return getBalance(accountId)
-
-
 class Reset(View):
 
 	def clear_db(self): Account.objects.all().delete()
