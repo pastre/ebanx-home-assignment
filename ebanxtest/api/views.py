@@ -78,7 +78,7 @@ def onTransfer(event):
 	if not originAccount: return notFound('0')
 
 	destinationAccount = getAccount(destinationId)
-	if not destinationAccount: return notFound('0')
+	if not destinationAccount: destinationAccount = createAccount(destinationId)
 
 	originAccount.balance -= amount
 	destinationAccount.balance += amount
