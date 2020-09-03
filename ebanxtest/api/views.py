@@ -13,6 +13,7 @@ def stringToInt(i):
 	try: return int(i)
 	except ValueError: return False
 
+def getAccount(pk): return Account.objects.filter(pk = pk).first()
 def createAccount(pk):
 	new = Account.objects.create(pk = pk)
 	new.save()
@@ -22,9 +23,8 @@ def code201(payload):
 	response = HttpResponse(payload, status = 201)
 
 	return response
-
+def malformedRequest(): return HttpResponseBadRequest()
 def notFound(payload): return HttpResponseNotFound(payload)
-def getAccount(pk): return Account.objects.filter(pk = pk).first()
 
 def getBalance(pk):
 	account = getAccount(pk)
@@ -45,10 +45,10 @@ def onDeposit(event):
 	account.balance += amount
 	account.save()
 
-	return code201(json.dumps(account.toDict("destination")))
-
+	return code201(json.dumps({
+		"destination": account.toDict()
+		}))
 def onWithdraw(event):
-
 	origin = event.get('origin', False)
 	if not origin: return malformedRequest()
 
@@ -60,9 +60,38 @@ def onWithdraw(event):
 
 	account.balance -= amount
 	account.save()
-	return code201(json.dumps(account.toDict("origin")))
 
-def malformedRequest(): return HttpResponseBadRequest()
+	return code201(json.dumps({
+		"origin": account.toDict()
+		}))
+def onTransfer(event):
+	originId = event.get('origin', False)
+	if not originId: return malformedRequest()
+
+	destinationId = event.get('destination', False)
+	if not destinationId: return malformedRequest()
+
+	amount = event.get('amount', False)
+	if not amount: return malformedRequest()
+
+	originAccount = getAccount(originId)
+	if not originAccount: return notFound('0')
+
+	destinationAccount = getAccount(destinationId)
+	if not destinationAccount: return notFound('0')
+
+	originAccount.balance -= amount
+	destinationAccount.balance += amount
+
+	originAccount.save()
+	destinationAccount.save()
+
+	return code201(json.dumps ({
+		"origin": originAccount.toDict(),
+		"destination": destinationAccount.toDict(),
+		}))
+
+
 
 class Event(View) :
 
@@ -74,7 +103,7 @@ class Event(View) :
 
 		if event == "deposit": return onDeposit(asDict)
 		if event == "withdraw": return onWithdraw(asDict)
-		
+		if event == "transfer": return onTransfer(asDict)
 		return malformedRequest()
 
 class Balance(View):
