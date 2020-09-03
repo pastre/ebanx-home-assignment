@@ -1,11 +1,9 @@
 from django.shortcuts import render
 from django.views import View
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
-
 from api.models import Account
 import json
 from api.utils import requestToJson,stringToInt
-
+from api.response_wrappers import successRequest, malformedRequest, notFound
 
 def getAccount(pk): return Account.objects.filter(pk = pk).first()
 def createAccount(pk):
@@ -17,9 +15,6 @@ def getAndCreateAccountIfNeeded(pk):
 	if not account: account = createAccount(pk)
 
 	return account
-
-def malformedRequest(): return HttpResponseBadRequest()
-def notFound(payload): return HttpResponseNotFound(payload)
 
 def deposit(accountId, amount):
 	account = getAndCreateAccountIfNeeded(accountId)
@@ -44,7 +39,7 @@ class Event(View) :
 		amount = event.get('amount', False)
 		if not amount: return malformedRequest()
 
-		return HttpResponse(json.dumps({
+		return successRequest(json.dumps({
 			"destination": deposit(destination, amount).toDict()
 			}), status = 201)
 	def onWithdraw(self, event):
@@ -57,7 +52,7 @@ class Event(View) :
 		success = withdraw(origin, amount)
 		if not success: return notFound("0")
 
-		return HttpResponse(json.dumps({
+		return successRequest(json.dumps({
 			"origin": success.toDict()
 			}), status = 201)
 	def onTransfer(self, event):
@@ -75,7 +70,7 @@ class Event(View) :
 
 		destinationAccount = deposit(destinationId, amount)
 
-		return HttpResponse(json.dumps ({
+		return successRequest(json.dumps ({
 			"origin": originAccount.toDict(),
 			"destination": destinationAccount.toDict(),
 			}), status = 201)
@@ -96,7 +91,7 @@ class Balance(View):
 		account = getAccount(pk)
 		if not account: return notFound('0')
 
-		return HttpResponse(account.balance)
+		return successRequest(account.balance)
 
 
 	def get(self, request):
@@ -110,7 +105,7 @@ class Reset(View):
 
 	def post(self, request):
 		self.clear_db()
-		return HttpResponse("OK")
+		return successRequest("OK")
 
 
 
