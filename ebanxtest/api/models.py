@@ -4,9 +4,9 @@ class Account(models.Model):
 
 	balance = models.IntegerField(default=0)
 
-	def toDict(self):
+	def toDict(self, direction):
 		return {
-			"destination": {
+			direction: {
 				"id": str(self.pk),
 				"balance": self.balance,
 			}

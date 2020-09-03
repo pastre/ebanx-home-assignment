@@ -31,7 +31,13 @@ def getBalance(pk):
 	if not account: return notFound('0')
 
 	return HttpResponse(account.balance)
-def onDeposit(destination, amount):
+def onDeposit(event):
+	destination = event.get('destination', False)
+	if not destination: return malformedRequest()
+
+	amount = event.get('amount', False)
+	if not amount: return malformedRequest()
+
 	account = getAccount(destination)
 	if not account:
 		account = createAccount(destination)
@@ -39,42 +45,36 @@ def onDeposit(destination, amount):
 	account.balance += amount
 	account.save()
 
-	return code201(json.dumps(account.toDict()))
+	return code201(json.dumps(account.toDict("destination")))
 
+def onWithdraw(event):
+
+	origin = event.get('origin', False)
+	if not origin: return malformedRequest()
+
+	amount = event.get('amount', False)
+	if not amount: return malformedRequest()
+
+	account = getAccount(origin)
+	if not account: return notFound("0")
+
+	account.balance -= amount
+	account.save()
+	return code201(json.dumps(account.toDict("origin")))
 
 def malformedRequest(): return HttpResponseBadRequest()
 
 class Event(View) :
 
-	def sanitizeEvent(self, event):
-		minimumKeys = ["destination", "amount"]
-		intKeys = ["amount", "balance"]
-
-		for key in minimumKeys: 
-			if not key in event.keys(): return False
-
-		for key, value in event.items():
-			if key in intKeys:
-				number = stringToInt(value)
-				if not number: return False
-				event[key] = number
-
-		return event
-
 	def post(self, request):
 		asDict = requestToJson(request)
 
-
 		event = asDict.get("type", False)
-		print("--->", event)
-
 		if not event: return malformedRequest()
 
-		sanitized = self.sanitizeEvent(asDict)
-		if not sanitized: return malformedRequest()
-
-		if event == "deposit": return onDeposit(sanitized["destination"], sanitized["amount"])
-
+		if event == "deposit": return onDeposit(asDict)
+		if event == "withdraw": return onWithdraw(asDict)
+		
 		return malformedRequest()
 
 class Balance(View):
