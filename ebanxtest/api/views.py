@@ -30,6 +30,7 @@ def getBalance(pk):
 	account = getAccount(pk)
 	if not account: return notFound('0')
 
+	return HttpResponse(account.balance)
 def onDeposit(destination, amount):
 	account = getAccount(destination)
 	if not account:
@@ -39,7 +40,6 @@ def onDeposit(destination, amount):
 	account.save()
 
 	return code201(json.dumps(account.toDict()))
-
 
 
 def malformedRequest(): return HttpResponseBadRequest()
@@ -60,7 +60,6 @@ class Event(View) :
 				event[key] = number
 
 		return event
-
 
 	def post(self, request):
 		asDict = requestToJson(request)
