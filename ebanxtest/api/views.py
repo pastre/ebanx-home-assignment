@@ -1,24 +1,49 @@
 from django.shortcuts import render
-from django.view import View
+from django.views import View
+from django.http import HttpResponse, HttpResponseBadRequest
+
+from api.models import Account
 import json
 
 def requestToJson(request):
 	print("BODY IS", request.body)
-	return json.loads(request.body)
+	return json.loads(request.body.decode('utf-8'))
 
 def stringToInt(i):
-	try: return Int(i)
+	try: return int(i)
 	except ValueError: return False
 
+def createAccount(pk):
+	new = Account.objects.create(pk = pk)
+	new.save()
+	return new
+
+def code201(payload): 
+	response = HttpResponse(payload)
+
+	response.statusCode = 201
+
+	return response
+
+
+
 def onDeposit(destination, amount):
-	pass # TODO
+	account = Account.objects.filter(pk = destination).first()
+	if not account:
+		account = createAccount(destination)
+
+	account.balance += amount
+	account.save()
+
+	return code201(json.dumps(account.toDict()))
 
 
-def malformedRequest(): return "TODO"
+
+def malformedRequest(): return HttpResponseBadRequest()
 
 class Event(View) :
 
-	def sanitizeEvent(event):
+	def sanitizeEvent(self, event):
 		minimumKeys = ["destination", "amount"]
 		intKeys = ["amount", "balance"]
 
@@ -37,14 +62,18 @@ class Event(View) :
 	def post(self, request):
 		asDict = requestToJson(request)
 
-		event = asDict.get("event", False)
+
+		event = asDict.get("type", False)
+		print("--->", event)
+
 		if not event: return malformedRequest()
 
-		sanitized = sanitizeEvent(event)
+		sanitized = self.sanitizeEvent(asDict)
 		if not sanitized: return malformedRequest()
 
 		if event == "deposit": return onDeposit(sanitized["destination"], sanitized["amount"])
 
+		return malformedRequest()
 
 
 
