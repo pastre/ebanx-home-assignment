@@ -4,11 +4,8 @@ from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFou
 
 from api.models import Account
 import json
+from api.utils import requestToJson,stringToInt
 
-def requestToJson(request): return json.loads(request.body.decode('utf-8'))
-def stringToInt(i):
-	try: return int(i)
-	except ValueError: return False
 
 def getAccount(pk): return Account.objects.filter(pk = pk).first()
 def createAccount(pk):
@@ -38,8 +35,6 @@ def withdraw(accountId, amount):
 	account.save()
 
 	return account
-
-
 
 class Event(View) :
 	def onDeposit(self, event):
