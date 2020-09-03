@@ -19,9 +19,7 @@ def createAccount(pk):
 	return new
 
 def code201(payload): 
-	response = HttpResponse(payload)
-
-	response.statusCode = 201
+	response = HttpResponse(payload, status = 201)
 
 	return response
 

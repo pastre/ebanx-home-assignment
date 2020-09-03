@@ -7,7 +7,7 @@ class Account(models.Model):
 	def toDict(self):
 		return {
 			"destination": {
-				"id": self.pk,
-				"amount": self.balance,
+				"id": str(self.pk),
+				"balance": self.balance,
 			}
 		}
