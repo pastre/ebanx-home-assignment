@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.views import View
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
 
 from api.models import Account
 import json
@@ -23,10 +23,15 @@ def code201(payload):
 
 	return response
 
+def notFound(payload): return HttpResponseNotFound(payload)
+def getAccount(pk): return Account.objects.filter(pk = pk).first()
 
+def getBalance(pk):
+	account = getAccount(pk)
+	if not account: return notFound('0')
 
 def onDeposit(destination, amount):
-	account = Account.objects.filter(pk = destination).first()
+	account = getAccount(destination)
 	if not account:
 		account = createAccount(destination)
 
@@ -72,6 +77,14 @@ class Event(View) :
 		if event == "deposit": return onDeposit(sanitized["destination"], sanitized["amount"])
 
 		return malformedRequest()
+
+class Balance(View):
+	def get(self, request):
+		accountId = request.GET.get("account_id", False)
+		if not accountId: return malformedRequest()
+
+		return getBalance(accountId)
+
 
 class Reset(View):
 
