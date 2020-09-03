@@ -1,35 +1,10 @@
 from django.shortcuts import render
 from django.views import View
-from api.models import Account
 import json
+
 from api.utils import requestToJson,stringToInt
 from api.response_wrappers import successRequest, malformedRequest, notFound
-
-def getAccount(pk): return Account.objects.filter(pk = pk).first()
-def createAccount(pk):
-	new = Account.objects.create(pk = pk)
-	new.save()
-	return new
-def getAndCreateAccountIfNeeded(pk):
-	account = getAccount(pk)
-	if not account: account = createAccount(pk)
-
-	return account
-
-def deposit(accountId, amount):
-	account = getAndCreateAccountIfNeeded(accountId)
-	account.balance += amount
-	account.save()
-
-	return account
-def withdraw(accountId, amount):
-	account = getAccount(accountId)
-	if not account: return False
-
-	account.balance -= amount
-	account.save()
-
-	return account
+from api.model_facade import getAccount, createAccount, getAndCreateAccountIfNeeded, deposit, withdraw, clear_db
 
 class Event(View) :
 	def onDeposit(self, event):
@@ -100,11 +75,8 @@ class Balance(View):
 
 		return self.getBalance(accountId)
 class Reset(View):
-
-	def clear_db(self): Account.objects.all().delete()
-
 	def post(self, request):
-		self.clear_db()
+		clear_db()
 		return successRequest("OK")
 
 
