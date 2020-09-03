@@ -73,5 +73,13 @@ class Event(View) :
 
 		return malformedRequest()
 
+class Reset(View):
+
+	def clear_db(self): Account.objects.all().delete()
+
+	def post(self, request):
+		self.clear_db()
+		return HttpResponse("OK")
+
 
 
